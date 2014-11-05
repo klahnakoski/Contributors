@@ -106,7 +106,7 @@ function* getPendingPatches(mainFilter){
 	///////////////////////////////////////////////////////////////////////////
 	var bugs = yield (ESQuery.run({
 		"from" : "public_bugs",
-		"select" : ["bug_id", "short_desc", "attachments"],
+		"select" : ["bug_id", "short_desc", "bug_mentor", "attachments"],
 		"esfilter" : {"and" : [
 			{"range" : {"expires_on" : {"gt" : Date.eod().getMilli()}}},
 			Mozilla.BugStatus.Open.esfilter,
@@ -152,7 +152,7 @@ function* getPendingPatches(mainFilter){
 						a.isobsolete == 0 &&
 						(
 							f.request_status === undefined ||
-								f.request_status == "?"
+								["?", "+"].contains(f.request_status)
 							)
 					) {
 					f.bug = b;
@@ -168,3 +168,40 @@ function* getPendingPatches(mainFilter){
 
 	yield allPatches;
 }
+
+
+function* findQuestions(bugList){
+
+	var comments = yield(ESQuery.run({
+		"from":"public_comments",
+		"select":["bug_id", "modified_by", "modified_ts", "comment"],
+		"esfilter":{"and":[
+			{"terms":{"bug_id":bugList}},
+			{"range":{"modified_ts":{"gte":Date.today().addMonth(-3).getMilli()}}}
+		]}
+	}));
+
+	//GET THE OLDEST COMMENT FROM EACH BUG
+	var oldest={};
+	comments.list.forall(function(c){
+		var old = oldest[c.bug_id];
+		if (old===undefined){
+			oldest[c.bug_id]=c;
+			old = c;
+		}else if (old.modified_ts< c.modified_ts){
+			oldest[c.bug_id]=c;
+			old = c;
+		}//endif
+	});
+
+	var questions = Map.getValues(oldest).filter(function(c){
+		//FIND A QUESTION (?), BUT NOT IN A QUOTE (>)
+		return c.comment.split("\n").map(function(line){
+			if (line.trim().startsWith(">")) return undefined;
+			if (line.indexOf("?")>=0) return c;
+		}).first();
+	});
+	yield questions;
+}
+
+

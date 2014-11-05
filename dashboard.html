@@ -38,23 +38,70 @@
 <div style="float:left;width:800px">
 	<table style="width:100%">
 		<tr>
-			<td><h3>Patches w.o. Review</h3></td>
+			<td><h3>Patches w.o. Review</h3>Patches without a review request, or missing reviewer.</td>
 		</tr>
 		<tr>
 			<td id="patches"></td>
 		</tr>
 		<tr>
-			<td><h3>Review Requested</h3></td>
+			<td>
+				<hr>
+			</td>
 		</tr>
 		<tr>
-			<td id="pending"></td>
+			<td><h3>Review Requested</h3>Review has been requested, but it has not been completed yet.</td>
 		</tr>
 		<tr>
-			<td><h3>Review Complete</h3></td>
+			<td id="pendingReview"></td>
 		</tr>
 		<tr>
-			<td id="complete"></td>
+			<td>
+				<hr>
+			</td>
 		</tr>
+		<tr>
+			<td><h3>Review Complete</h3>Looks like patch has been accepted, but bug is still not closed.</td>
+		</tr>
+		<tr>
+			<td id="completeReview"></td>
+		</tr>
+		<tr>
+			<td>
+				<hr>
+			</td>
+		</tr>
+		<tr>
+			<td><h3>Open Question</h3> bugs with <code>needinfo?</code> or bugs with question mark in last comment.</td>
+		</tr>
+		<tr>
+			<td id="openQuestion"></td>
+		</tr>
+		<tr>
+			<td>
+				<hr>
+			</td>
+		</tr>
+		<tr>
+			<!--no response from mentor - either question in comment, or needinfo-->
+			<!--no response from assignee - after question in comment-->
+			<!--no response from assignee (even after need info)-->
+			<td><h3>Old Open Bug</h3> bug has been Good First Bug for over 3 months without activity, maybe it is not a good first bug</td>
+		</tr>
+		<tr>
+			<td id="staleBugs"></td>
+		</tr>
+		<tr>
+			<td>
+				<hr>
+			</td>
+		</tr>
+
+		<!--TODO-->
+		<!--stopped after review- - patch was submitted and review-minused, then assignee lost interest-->
+
+		<!--healthy - has none of the above problems-->
+
+
 		<tr style="max-height:800px;overflow-y: scroll;">
 			<td id="open"></td>
 		</tr>
@@ -80,50 +127,156 @@ importScript([
 
 	var __createChart = function*(){
 
+		var mainFilter = {"and": [
+			{"or": [
+				{"exists": {"field": "bug_mentor"}},
+				{"prefix": {"status_whiteboard.tokenized": "mentor"}},
+				{"term": {"status_whiteboard.tokenized": "good first bug"}},
+				{"term": {"status_whiteboard.tokenized": "good next bug"}},
+				{"term": {"status_whiteboard.tokenized": "good_first_bug"}},
+				{"term": {"status_whiteboard.tokenized": "good_next_bug"}}
+			]},
+			{"terms": {"product": ["bugzilla", "bugzilla.mozilla.org", "testing", "datazilla"]}}
+		]};
+
+		var allBugs;
+		var allBugsThread = Thread.run(function*(){
+			allBugs = (yield(ESQuery.run({
+				"select": "bug_id",
+				"from": "public_bugs",
+				"esfilter": {"and": [
+					mainFilter,
+					Mozilla.CurrentRecords.esfilter,
+					Mozilla.BugStatus.Open.esfilter
+				]}
+			}))).list;
+		});
+
+
 		Thread.run(function*(){
-			var mainFilter = {"and":[
-				{"or":[
-					{"exists":{"field":"mentor"}},
-					{"term":{"status_whiteboard.tokenized":"good first bug"}},
-					{"term":{"status_whiteboard.tokenized":"good next bug"}},
-					{"term":{"status_whiteboard.tokenized":"good_first_bug"}},
-					{"term":{"status_whiteboard.tokenized":"good_next_bug"}}
-				]},
-				{"terms":{"product":["bugzilla", "bugzilla.mozilla.org", "testing", "datazilla"]}}
-			]};
+			///////////////////////////////////////////////////////////////////
+			// PATCHES AND REVIEWS ARE DONE WITH SINGLE HIT TO ES
+			///////////////////////////////////////////////////////////////////
 			var allPatches = yield (getPendingPatches(mainFilter));
 
 			var rawPatches = yield (Qb.calc2List({
-				"from" : allPatches,
-				"select" : [
-					{"name" : "BugID", "value" : "Bugzilla.linkToBug(bug.bug_id)"},
-					{"name" : "Summary", "value" : "bug.short_desc"},
-					{"name" : "Age (days)", "value" : "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
+				"from": allPatches,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug.bug_id)"},
+					{"name": "Summary", "value": "bug.short_desc"},
+					{"name": "Mentor", "value": "bug.bug_mentor"},
+					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
 				],
-				"where" : {"missing" : "requestee"},
-				"sort" : {"value" : "Age (days)", "sort" : -1}
+				"where": {"missing": "requestee"},
+				"sort": {"value": "Age (days)", "sort": -1}
 			}));
-
 			$("#patches").html(CNV.List2HTMLTable(rawPatches));
 
-
-
 			var pending = yield (Qb.calc2List({
-				"from" : allPatches,
-				"select" : [
-					{"name" : "BugID", "value" : "Bugzilla.linkToBug(bug.bug_id)"},
-					{"name" : "Summary", "value" : "bug.short_desc"},
-					{"name" : "Reviewer", "value" : "nvl(requestee, '')"},
-					{"name" : "Age (days)", "value" : "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
+				"from": allPatches,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug.bug_id)"},
+					{"name": "Summary", "value": "bug.short_desc"},
+					{"name": "Reviewer", "value": "nvl(requestee, '')"},
+					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
 				],
-				"where" : {"exists" : "requestee"},
-				"sort" : {"value" : "Age (days)", "sort" : -1}
+				"where": {"and": [
+					{"exists": "requestee"},
+					{"term": {"request_status": "?"}}
+				]},
+				"sort": {"value": "Age (days)", "sort": -1}
 			}));
+			$("#pendingReview").html(CNV.List2HTMLTable(pending));
 
-			$("#pending").html(CNV.List2HTMLTable(pending));
-
+			var complete = yield (Qb.calc2List({
+				"from": allPatches,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug.bug_id)"},
+					{"name": "Summary", "value": "bug.short_desc"},
+					{"name": "Reviewer", "value": "nvl(requestee, '')"},
+					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
+				],
+				"where": {"and": [
+					{"term": {"request_status": "+"}}
+				]},
+				"sort": {"value": "Age (days)", "sort": -1}
+			}));
+			$("#completeReview").html(CNV.List2HTMLTable(complete));
 		});
 
+		Thread.run(function*(){
+			var staleBugs = yield(ESQuery.run({
+				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
+				"from": "public_bugs",
+				"esfilter": {"and": [
+					mainFilter,
+					Mozilla.CurrentRecords.esfilter,
+					Mozilla.BugStatus.Open.esfilter,
+					{"range": {"modified_ts": {"lt": Date.today().addMonth(-3).getMilli()}}},
+					{"term": {"assigned_to": "nobody@mozilla.org"}}
+				]}
+			}));
+
+			var output = yield (Qb.calc2List({
+				"from": staleBugs,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug_id)"},
+					{"name": "Summary", "value": "short_desc"},
+					{"name": "Mentor", "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"},
+					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(modified_ts)).divideBy(Duration.DAY), 0)"}
+				],
+				"sort": {"value": "Age (days)", "sort": -1}
+			}));
+
+			$("#staleBugs").html(CNV.List2HTMLTable(output))
+		});
+
+		Thread.run(function*(){
+			yield (allBugsThread.join());
+			var questions = yield (findQuestions(allBugs));
+
+			var openQuestion = yield(ESQuery.run({
+				"from": "public_bugs",
+				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
+				"esfilter": {"and": [
+					mainFilter,
+					Mozilla.CurrentRecords.esfilter,
+					Mozilla.BugStatus.Open.esfilter,
+					{"range": {"modified_ts": {"lt": Date.today().addDay(-2).getMilli()}}},
+					{"or": [
+						{ "nested": {
+							"path": "flags",
+							"query": {
+								"filtered": {
+									"query": {
+										"match_all": {}
+									},
+									"filter": {"and": [
+										{"term": { "flags.request_type": "needinfo"}},
+										{"term": { "flags.request_status": "?"}}
+									]}
+								}
+							}
+						}},
+						{"terms": {"bug_id": questions.select("bug_id")}}
+					]}
+				]}
+			}));
+
+			var output = yield (Qb.calc2List({
+				"from": openQuestion,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug_id)"},
+					{"name": "Summary", "value": "short_desc"},
+					{"name": "Mentor", "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"},
+					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(modified_ts)).divideBy(Duration.DAY), 0)"}
+				],
+				"sort": {"value": "Age (days)", "sort": -1}
+			}));
+
+			$("#openQuestion").html(CNV.List2HTMLTable(output))
+
+		});
 	};//createChart
 
 
@@ -138,7 +291,6 @@ importScript([
 			false
 		);
 	});
-
 
 
 });
