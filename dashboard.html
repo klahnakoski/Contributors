@@ -56,6 +56,10 @@
 			<td><h3>Open Question</h3> bugs with <code>needinfo?</code> or bugs with question mark in last comment.</td>
 		</tr>
 		<tr>
+			<!--no response from mentor - either question in comment, or needinfo-->
+			<!--no response from assignee - after question in comment-->
+			<!--no response from assignee (even after need info)-->
+			<!--bugs that had a pending patch/question with no activity in >1 week (could  this be a dashboard)-->
 			<td id="openQuestion"></td>
 		</tr>
 		<tr>
@@ -64,10 +68,18 @@
 			</td>
 		</tr>
 		<tr>
-			<!--no response from mentor - either question in comment, or needinfo-->
-			<!--no response from assignee - after question in comment-->
-			<!--no response from assignee (even after need info)-->
-			<td><h3>Old Open Bug</h3> bug has been Good First Bug for over 3 months without activity, maybe it is not a good first bug</td>
+			<td><h3>New Bugs</h3> Fresh Good First Bugs</td>
+		</tr>
+		<tr>
+			<td id="newBugs"></td>
+		</tr>
+		<tr>
+			<td>
+				<hr>
+			</td>
+		</tr>
+		<tr>
+			<td><h3>Stale Bugs</h3> bugs are assigned, but no activity for a week.</td>
 		</tr>
 		<tr>
 			<td id="staleBugs"></td>
@@ -77,13 +89,29 @@
 				<hr>
 			</td>
 		</tr>
+		<tr>
+			<td><h3>No Bites</h3> bug has been Good First Bug for over 3 months without activity, maybe it is not a good first bug.</td>
+		</tr>
+		<tr>
+			<td id="noBites"></td>
+		</tr>
+		<tr>
+			<td>
+				<hr>
+			</td>
+		</tr>
 
 		<!--TODO-->
 		<!--stopped after review- - patch was submitted and review-minused, then assignee lost interest-->
-
 		<!--healthy - has none of the above problems-->
-
-
+		<!--assigned bugs with no activity in 10 days be flagged-->
+		<!--review newly filed bugs to verify they are accurate (project page, mentored, etc.) - ignore ones that are assigned
+		activity on a bug with no response in 1 weeks is unacceptable, ideally 3 days (but how do we exclude holidays/weekends/etc.) ?
+		find all bugs with comments/etc. in the last 'X' days where one of the assigned mentors is not the last one to take action?
+		-->
+		<!--* new bugs since last check
+		we really should review these to ensure they have links to code, documentation, a mentor, and have something actionable, thoughts?
+		--->
 		<tr style="max-height:800px;overflow-y: scroll;">
 			<td id="open"></td>
 		</tr>
@@ -120,6 +148,11 @@ importScript([
 				{"term": {"status_whiteboard.tokenized": "good_next_bug"}}
 			]},
 			{"terms": {"product": ["bugzilla", "bugzilla.mozilla.org", "testing", "datazilla"]}}
+		]};
+
+		var notAssigned = {"or":[
+			{"term": {"assigned_to": "nobody@mozilla.org"}},
+			{"regexp":{"assigned_to": ".*bugzilla\\.bugs"}}  // BUGZILLA HAS LOTS EMAILS THAT INDICATE nobody
 		]};
 
 		var allBugs;
@@ -188,7 +221,48 @@ importScript([
 		});
 
 		Thread.run(function*(){
-			var staleBugs = yield(ESQuery.run({
+			var oldest = Date.today().addMonth(-1);
+
+			var churn = yield (ElasticSearch.getMinMax({"and": [
+				mainFilter,
+				{"range": {"modified_ts": {"gte": oldest.getMilli()}}},
+				notAssigned
+			]}));
+
+			var parts = churn.edges[0].domain.partitions;
+			var newBugIDs = churn.cube.forall(function(v, i){
+				v.bug_id=parts[i].value;
+			}).filter(function(v){return v.min>oldest && v.max===undefined});
+
+			var newBugs = yield(ESQuery.run({
+				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
+				"from": "public_bugs",
+				"esfilter": {"and": [
+					{"terms":{"bug_id":newBugIDs.select("bug_id")}},  //THE bug_ids
+					Mozilla.CurrentRecords.esfilter,
+					Mozilla.BugStatus.Open.esfilter
+				]}
+			}));
+
+			var output = yield (Qb.calc2List({
+				"from": newBugs,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug_id)"},
+					{"name": "Summary", "value": "short_desc"},
+					{"name": "Mentor", "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"},
+					{"name": "Age (weekdays)", "value": "Math.round(Date.diffWeekday(Date.today(), Date.newInstance(modified_ts)))"}
+				],
+				"sort": {"value": "Age (weekdays)", "sort": -1}
+			}));
+
+			$("#newBugs").html(CNV.List2HTMLTable(output))
+		});
+
+
+
+
+		Thread.run(function*(){
+			var noBites = yield(ESQuery.run({
 				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
 				"from": "public_bugs",
 				"esfilter": {"and": [
@@ -196,7 +270,34 @@ importScript([
 					Mozilla.CurrentRecords.esfilter,
 					Mozilla.BugStatus.Open.esfilter,
 					{"range": {"modified_ts": {"lt": Date.today().addMonth(-3).getMilli()}}},
-					{"term": {"assigned_to": "nobody@mozilla.org"}}
+					notAssigned
+				]}
+			}));
+
+			var output = yield (Qb.calc2List({
+				"from": noBites,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug_id)"},
+					{"name": "Summary", "value": "short_desc"},
+					{"name": "Mentor", "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"},
+					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(modified_ts)).divideBy(Duration.DAY), 0)"}
+				],
+				"sort": {"value": "Age (days)", "sort": -1}
+			}));
+
+			$("#noBites").html(CNV.List2HTMLTable(output))
+		});
+
+		Thread.run(function*(){
+			var staleBugs = yield(ESQuery.run({
+				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
+				"from": "public_bugs",
+				"esfilter": {"and": [
+					mainFilter,
+					Mozilla.CurrentRecords.esfilter,
+					Mozilla.BugStatus.Open.esfilter,
+					{"range": {"modified_ts": {"lt": Date.today().addDay(-7).getMilli()}}},
+					{"not": notAssigned}
 				]}
 			}));
 
@@ -206,9 +307,9 @@ importScript([
 					{"name": "BugID", "value": "Bugzilla.linkToBug(bug_id)"},
 					{"name": "Summary", "value": "short_desc"},
 					{"name": "Mentor", "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"},
-					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(modified_ts)).divideBy(Duration.DAY), 0)"}
+					{"name": "Age (weekdays)", "value": "Math.round(Date.diffWeekday(Date.today(), Date.newInstance(modified_ts)))"}
 				],
-				"sort": {"value": "Age (days)", "sort": -1}
+				"sort": {"value": "Age (weekdays)", "sort": -1}
 			}));
 
 			$("#staleBugs").html(CNV.List2HTMLTable(output))
