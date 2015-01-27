@@ -137,7 +137,7 @@ importScript([
 	"../../lib/ccc/pvc/pvcDataTree.js",
 	"../../lib/ccc/pvc/data/translation/BoxplotChartTranslationOper.js",
 	"../../lib/ccc/pvc/pvcBoxplotPanel.js",
-	"../../lib/ccc/pvc/pvcBoxplotChart.js",
+	"../../lib/ccc/pvc/pvcBoxplotChart.js"
 ]);
 
 
@@ -346,7 +346,7 @@ aChart.showPie=function(params){
 		width: 400,
 		height: 400,
 		animate:false,
-		title: chartCube.name,
+		title: nvl(params.name, chartCube.name),
 		legend: true,
 		legendPosition: "right",
 //		legendAlign: "center",
@@ -513,10 +513,29 @@ aChart.showScatter=function(params){
 //			line_strokeStyle:
 		}
 	};
-
-
-
 	copyParam(params, chartParams);
+
+
+	if (xaxis.domain.type=="time"){
+		//LOOK FOR DATES TO MARKUP
+
+		var dateMarks = [];
+		dateMarks.appendArray(findDateMarks(xaxis.domain));  //WE CAN PLUG SOME dateMarks RIGHT INTO TIME DOMAIN FOR DISPLAY
+		if (dateMarks.length>0){
+			chartParams.renderCallback=function(){
+				var self=this;
+				dateMarks.forall(function(m){
+					try{
+						self.chart.markEvent(Date.newInstance(m.date).format(Qb.domain.time.DEFAULT_FORMAT), m.name, m.style);
+					}catch(e){
+						Log.warning("markEvent failed", e);
+					}
+				});
+				if (params.renderCallback) params.renderCallback();  //CHAIN EXISTING, IF ONE
+			};
+		}//endif
+	}//endif
+
 
 
 	var chart = new pvc[CHART_TYPES[type]](chartParams);
@@ -775,8 +794,8 @@ aChart.show=function(params){
 //				return "hi there";
 //			}
 		},
-		"colors":styles.map(function(s){
-			var c = s.color;
+		"colors":styles.map(function(s, i){
+			var c = nvl(s.color, DEFAULT_STYLES[i%(DEFAULT_STYLES.length)].color);
 			if (c.toHTML){
 				return c.toHTML();
 			}else{
@@ -934,22 +953,27 @@ aChart.show=function(params){
 
 //FIX CLICKACTION SO IT WORKS IN BOTH CHART VERSIONS
 function fixClickAction(chartParams){
+	fixAction(chartParams, "clickAction");
+	fixAction(chartParams, "tooltipFormat");
+}
 
-	var clickAction = chartParams.clickAction;
-	chartParams.clickAction = function(series, x, d, elem){
+function fixAction(chartParams, actionName){
+	var action = chartParams[actionName];
+	if (action===undefined) return;
+	chartParams[actionName] = function(series, x, d, elem){
 		if (series.atoms !== undefined){
 			//CCC VERSION 2
 			var s = nvl(series.atoms.series, {"value":"data"}).value;
-			var c = series.atoms.category.value;
-			var v = series.atoms.value.value;
+			var c = nvl(series.atoms.category, series.atoms.x).value;
+			var v = nvl(series.atoms.value, series.atoms.y).value;
 			if (c instanceof Date){  //CCC 2 DATES ARE IN LOCAL TZ
 				c = c.addTimezone();
 			}//endif
 
-			return clickAction(s, c, v, elem);
+			return action(s, c, v, elem, series.dataIndex);
 		} else{
 			//CCC VERSION 1
-			return clickAction(series, x, d, elem);
+			return action(series, x, d, elem);
 		}//endif
 	};//method
 }

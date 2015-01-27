@@ -99,11 +99,16 @@ Map.expecting=function(obj, keyList){
 Map.get=function(obj, fieldName){
 	if (obj===undefined || obj==null) return obj;
 	var path = splitField(fieldName);
-	for (var i=0;i<path.length;i++){
-		obj = obj[path[i]];
-		if (obj===undefined || obj==null) return obj;
+	for (var i=0;i<path.length-1;i++){
+		var step = path[i];
+		if (step=="length"){
+			obj = eval("obj.length");
+		}else{
+			obj = obj[step];
+		}//endif
+		if (obj===undefined || obj==null) return undefined;
 	}//endif
-	return obj;
+	return obj[path.last()];
 };//method
 
 
@@ -215,6 +220,8 @@ Map.getValues=function getValues(map){
 	return output;
 };
 
+Map.getKeys = Object.keys;
+
 
 //USE THE MAP FOR REVERSE LOOKUP ON codomain VALUES PROVIDED
 //SINCE THE MAP CODOMAIN IS A VALUE, === IS USED FOR COMPARISION
@@ -232,7 +239,15 @@ var reverseMap=function(map, codomain){
 
 //RETURN FIRST NOT NULL, AND DEFINED VALUE
 function nvl(){
-	var args = arguments.length == 1 ? arguments[0] : arguments;
+	var args=arguments;
+	if (args instanceof Array && args.length == 1) {
+		if (arguments[0] == undefined) {
+			return null;
+		}else{
+			args=arguments[0]; //ASSUME IT IS AN ARRAY
+		}//endif
+	}//endif
+
 	var a;
 	for(var i=0;i<args.length;i++){
 		a=args[i];

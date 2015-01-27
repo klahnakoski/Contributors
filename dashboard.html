@@ -31,10 +31,21 @@
 			</td>
 		</tr>
 		<tr>
-			<td><h3>Review Requested</h3>Review has been requested, but it has not been completed yet.</td>
+			<td><h3>Review Requested</h3>Review has been requested, but it has not been completed yet. (Also catches "feedback?")</td>
 		</tr>
 		<tr>
 			<td id="pendingReview"></td>
+		</tr>
+		<tr>
+			<td>
+				<hr>
+			</td>
+		</tr>
+		<tr>
+			<td><h3>Review Minus</h3>Looks like patch has been rejected, and no activity since.</td>
+		</tr>
+		<tr>
+			<td id="reviewMinus"></td>
 		</tr>
 		<tr>
 			<td>
@@ -146,7 +157,9 @@ importScript([
 				{"term": {"status_whiteboard.tokenized": "good next bug"}},
 				{"term": {"status_whiteboard.tokenized": "good_first_bug"}},
 				{"term": {"status_whiteboard.tokenized": "good_next_bug"}}
+
 			]},
+//			{"term": {"bug_id":1112773}},
 			{"terms": {"product": ["bugzilla", "bugzilla.mozilla.org", "testing", "datazilla"]}}
 		]};
 
@@ -183,7 +196,10 @@ importScript([
 					{"name": "Mentor", "value": "bug.bug_mentor"},
 					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
 				],
-				"where": {"missing": "requestee"},
+				"where": {"and":[
+					{"missing": "reviewer"},
+					{"not":{"term":{"request_status":"+"}}}
+				]},
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
 			$("#patches").html(CNV.List2HTMLTable(rawPatches));
@@ -193,27 +209,48 @@ importScript([
 				"select": [
 					{"name": "BugID", "value": "Bugzilla.linkToBug(bug.bug_id)"},
 					{"name": "Summary", "value": "bug.short_desc"},
-					{"name": "Reviewer", "value": "nvl(requestee, '')"},
+					{"name": "Reviewer", "value": "nvl(reviewer, '')"},
 					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
 				],
 				"where": {"and": [
-					{"exists": "requestee"},
+					{"exists": "reviewer"},
 					{"term": {"request_status": "?"}}
 				]},
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
 			$("#pendingReview").html(CNV.List2HTMLTable(pending));
 
+			var reviewMinus = yield (Qb.calc2List({
+				"from": allPatches,
+				"select": [
+					{"name": "BugID", "value": "Bugzilla.linkToBug(bug.bug_id)"},
+					{"name": "Summary", "value": "bug.short_desc"},
+					{"name": "Reviewer", "value": "reviewer"},
+					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
+				],
+				"where": {"and": [
+					{"exists":{"field":"reviewer"}},
+					{"term": {"request_status": "-"}}
+				]},
+				"sort": {"value": "Age (days)", "sort": -1}
+			}));
+			$("#reviewMinus").html(CNV.List2HTMLTable(reviewMinus));
+
 			var complete = yield (Qb.calc2List({
 				"from": allPatches,
 				"select": [
 					{"name": "BugID", "value": "Bugzilla.linkToBug(bug.bug_id)"},
 					{"name": "Summary", "value": "bug.short_desc"},
-					{"name": "Reviewer", "value": "nvl(requestee, '')"},
+					{"name": "Reviewer", "value": "reviewer"},
 					{"name": "Age (days)", "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"}
 				],
+				"window": [
+					{"name": "rejected", "value": "request_status=='-' ? true : false", "aggregate": "or", "groupby": "BugID"}
+				],
 				"where": {"and": [
-					{"term": {"request_status": "+"}}
+					{"term": {"request_status": "+"}},
+					{"not": {"terms": {"bug.bug_id": reviewMinus.list.select("BugID")}}},
+					{"not": {"contains": {"status_whiteboard":"leave open"}}}
 				]},
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
@@ -250,7 +287,7 @@ importScript([
 					{"name": "BugID", "value": "Bugzilla.linkToBug(bug_id)"},
 					{"name": "Summary", "value": "short_desc"},
 					{"name": "Mentor", "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"},
-					{"name": "Age (weekdays)", "value": "Math.round(Date.diffWeekday(Date.today(), Date.newInstance(modified_ts)))"}
+					{"name": "Age (weekdays)", "value": "Math.round(Date.diffWeekday(Date.eod(), Date.newInstance(modified_ts)))"}
 				],
 				"sort": {"value": "Age (weekdays)", "sort": -1}
 			}));

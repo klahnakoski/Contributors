@@ -54,7 +54,7 @@ function*getReviewers(timeDomain, maxReviewers){
 			{"or" : [
 				{"missing" : {"field" : "review_time"}},
 				{"and" : [
-					{"range" : {"review_time" : {"gte" : timeDomain.min.getMilli()}}},
+					{"range" : {"review_time" : {"gte" : timeDomain.min.getMilli()}}}
 //					{"terms" : {"review_result" : ["+", "-"]}}
 				]}
 			]},
@@ -106,7 +106,7 @@ function* getPendingPatches(mainFilter){
 	///////////////////////////////////////////////////////////////////////////
 	var bugs = yield (ESQuery.run({
 		"from" : "public_bugs",
-		"select" : ["bug_id", "short_desc", "bug_mentor", "attachments"],
+		"select" : ["bug_id", "short_desc", "bug_mentor", "attachments", "status_whiteboard"],
 		"esfilter" : {"and" : [
 			{"range" : {"expires_on" : {"gt" : Date.eod().getMilli()}}},
 			Mozilla.BugStatus.Open.esfilter,
@@ -149,15 +149,11 @@ function* getPendingPatches(mainFilter){
 						["review", "superreview"].contains(f.request_type) ||
 							a.ispatch == 1
 						) &&
-						a.isobsolete == 0 &&
-						(
-							f.request_status === undefined ||
-								["?", "+"].contains(f.request_status)
-							)
-					) {
+						a.isobsolete == 0
+				) {
 					f.bug = b;
 					f.attachment = a;
-					f.reviewer = f.requestee;
+					f.reviewer = nvl(f.requestee);
 					f.request_time = nvl(f.modified_ts, a.modified_ts);
 					allPatches.append(f);
 				}//endif
@@ -198,6 +194,17 @@ function* findQuestions(bugList){
 		//FIND A QUESTION (?), BUT NOT IN A QUOTE (>)
 		return c.comment.split("\n").map(function(line){
 			if (line.trim().startsWith(">")) return undefined;
+			line=line+" ";
+
+			while(true) {
+				var url = findURL(line);
+				if (url) {
+					line = line.replace(url, "");
+				}else{
+					break;
+				}//endif
+			}//while
+
 			if (line.indexOf("?")>=0) return c;
 		}).first();
 	});
@@ -205,3 +212,10 @@ function* findQuestions(bugList){
 }
 
 
+function findURL(line){
+	var url = line.between("http://", " ");
+	if (url) return "http://"+url;
+	url = line.between("https://", " ");
+	if (url) return "https://"+url;
+	return null;
+}//method

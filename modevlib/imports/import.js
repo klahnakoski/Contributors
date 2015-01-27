@@ -14,7 +14,7 @@ var importScript;
 (function () {
 
 	var METHOD_NAME = "importScript";
-	var FORCE_RELOAD = true;  //COMPENSATE FOR BUG https://bugzilla.mozilla.org/show_bug.cgi?id=991252
+	var FORCE_RELOAD = false;  //COMPENSATE FOR BUG https://bugzilla.mozilla.org/show_bug.cgi?id=991252
 	var DEBUG = false;
 
 	if (typeof(window.Log) == "undefined") {
@@ -314,6 +314,13 @@ var importScript;
 				DFS(c, [c]);
 			}//while
 
+			if (smallestLoop) return smallestLoop;
+
+			candidates.forEach(function(c){
+				if (graph[c].indegrees < graph[smallestLoop[0]].indegrees) {
+					smallestLoop = [c]
+				}//endif
+			});//for
 			return smallestLoop;
 		}//method
 

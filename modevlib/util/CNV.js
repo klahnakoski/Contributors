@@ -227,19 +227,22 @@ CNV.Object2URL=function(value){
 
 	CNV.String2HTML = function String2HTML(value) {
 		if (value==null) return "";
-
-		var output=[];
-		for(var i=0;i<value.length;i++){
-			var c= value[i];
-			var d = entityMap[c];
-			if (d===undefined){
-				output.append(c);
-			}else{
-				output.append(d)
-			}//endif
-		}//for
-		return output.join("");
+		return value.translate(entityMap);
 	};//method
+
+	var attrMap = {
+		"&": "&amp;",
+		'"': '&quot;',
+		"\n": "",
+		"\t": ""
+	};
+
+	CNV.value2HTMLAttribute = function(value){
+		if (value==null) return "";
+		if (typeof(value)=="string") return value.translate(attrMap);
+		return CNV.Object2JSON(value).translate(attrMap);
+	};
+
 })();
 
 
@@ -751,12 +754,19 @@ CNV.esFilter2function=function(esFilter){
 		};
 	} else if (op == "terms"){
 		var terms = esFilter[op];
-		return function(row, i, rows){
-			var variables = Object.keys(terms);
-			for(var k = 0; k < variables.length; k++){
-				var variable = variables[k];
-				if (!terms[variable].contains(row[variable])) return false;
-			}//for
+		var variables = Object.keys(terms);
+		if (variables.length>1) Log.error("not allowed");
+		var variable = variables[0];
+		return function(row){
+			var value = row[variable];
+			if (value===undefined){
+				return false;
+			}else if (value instanceof Array){
+				if (terms[variable].intersect(value).length==0) return false;
+			}else{
+				if (!terms[variable].contains(value)) return false;
+			}//endif
+
 			return true;
 		};
 	}else if (op=="exists"){
@@ -804,17 +814,37 @@ CNV.esFilter2function=function(esFilter){
 		}
 	}else if (op=="match_all"){
 		return TRUE_FILTER;
-	}else if (op=="regexp"){
+	}else if (op=="regexp") {
 		var pair = esFilter[op];
 		var variableName = Object.keys(pair)[0];
 		var regexp = new RegExp(pair[variableName]);
 		return function(row, i, rows){
-			if (regexp.test(row[variableName])){
+			if (regexp.test(row[variableName])) {
 				return true;
-			}else{
+			} else {
 				return false;
 			}//endif
 		}
+	}else if (op=="contains"){
+		var pair = esFilter[op];
+		var variableName = Object.keys(pair)[0];
+		var substr = pair[variableName];
+		return function(row, i, rows){
+			var v = row[variableName];
+			if (v===undefined){
+				return false;
+			}else if (v instanceof Array){
+				return v.contains(substr);
+			}else if (typeof(v)=="string") {
+				return v.indexOf(substr) >= 0;
+			}else{
+				Log.error("Do not know how to handle")
+			}//endif
+		}
+
+
+
+
 	} else{
 		Log.error("'" + op + "' is an unknown operation");
 	}//endif
