@@ -219,3 +219,17 @@ function findURL(line){
 	if (url) return "https://"+url;
 	return null;
 }//method
+
+
+
+doneBugs={};
+function render(bugs){
+	//SHOW BUGS ONLY ONCE
+	bugs = nvl(bugs.list, bugs).map(function(b){
+		if (doneBugs[b.BugID.html]) return undefined;
+		doneBugs[b.BugID.html]=true;
+		return b;
+	});
+	return CNV.List2HTMLTable(bugs);
+
+}//method

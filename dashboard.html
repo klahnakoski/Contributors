@@ -202,7 +202,7 @@ importScript([
 				]},
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
-			$("#patches").html(CNV.List2HTMLTable(rawPatches));
+			$("#patches").html(render(rawPatches));
 
 			var pending = yield (Qb.calc2List({
 				"from": allPatches,
@@ -218,7 +218,7 @@ importScript([
 				]},
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
-			$("#pendingReview").html(CNV.List2HTMLTable(pending));
+			$("#pendingReview").html(render(pending));
 
 			var reviewMinus = yield (Qb.calc2List({
 				"from": allPatches,
@@ -234,7 +234,7 @@ importScript([
 				]},
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
-			$("#reviewMinus").html(CNV.List2HTMLTable(reviewMinus));
+			$("#reviewMinus").html(render(reviewMinus));
 
 			var complete = yield (Qb.calc2List({
 				"from": allPatches,
@@ -254,7 +254,7 @@ importScript([
 				]},
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
-			$("#completeReview").html(CNV.List2HTMLTable(complete));
+			$("#completeReview").html(render(complete));
 		});
 
 		Thread.run(function*(){
@@ -292,7 +292,7 @@ importScript([
 				"sort": {"value": "Age (weekdays)", "sort": -1}
 			}));
 
-			$("#newBugs").html(CNV.List2HTMLTable(output))
+			$("#newBugs").html(render(output))
 		});
 
 
@@ -322,7 +322,7 @@ importScript([
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
 
-			$("#noBites").html(CNV.List2HTMLTable(output))
+			$("#noBites").html(render(output))
 		});
 
 		Thread.run(function*(){
@@ -349,7 +349,7 @@ importScript([
 				"sort": {"value": "Age (weekdays)", "sort": -1}
 			}));
 
-			$("#staleBugs").html(CNV.List2HTMLTable(output))
+			$("#staleBugs").html(render(output))
 		});
 
 		Thread.run(function*(){
@@ -395,7 +395,7 @@ importScript([
 				"sort": {"value": "Age (days)", "sort": -1}
 			}));
 
-			$("#openQuestion").html(CNV.List2HTMLTable(output))
+			$("#openQuestion").html(render(output))
 
 		});
 	};//createChart
