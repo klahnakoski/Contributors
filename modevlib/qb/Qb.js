@@ -36,7 +36,6 @@ function joinField(path){
 	return path.map(function(v){return v.replaceAll(".", "\\.");}).join(".");
 }//method
 
-
 (function(){
 
 	var DEBUG=true;
@@ -1012,31 +1011,58 @@ Qb.sort = function(data, sortOrder, columns){
 };//method
 
 
-Qb.sort.compile=function(sortOrder, columns, useNames){
-	var orderedColumns;
-	if (columns===undefined){
-		orderedColumns = sortOrder.map(function(v){
-			if (v.value!==undefined && v.sort!==undefined){
-				return {"name": v.value, "sortOrder":nvl(v.sort, 1), "domain":Qb.domain.value};
-			}else{
-				return {"name":v, "sortOrder":1, "domain":Qb.domain.value};
-			}//endif
-		});
+Qb.sortCube=function(cube, sort){
+	//ALERTS cube IN PLACE TO MAKE IT SORTED
+	sort = normalizeSort(sort);
+	if (cube.edges.length!=1) Log.error("sort not supported on cubes with more than 1 dimension");
+
+	var parts=cube.edges[0].domain.partitions;
+	var list = cube.cube.map(function(p, i){
+		return {"_value_":p,"_part_":parts[i]};
+	});
+	if (cube.select instanceof Array && cube.select.select("name").contains(sort[0].value)){
+		sort[0].value = "_value_."+sort[0].value;
+	}else if (cube.select.name==sort[0].value){
+		//CAN ONLY DEAL WITH SIMPLE SORT values
+		sort[0].value = "_value_";
 	}else{
+		sort[0].value = "_part_.".sort[0].value;
+	}//endif
+	var newCube = Qb.sort(list, sort);
+	cube.edges[0].domain.partitions = newCube.select("_part_");
+	cube.cube=newCube.select("_value_");
+};
+
+
+function normalizeSort(sortOrder, columns){
+	var orderedColumns;
+	sortOrder = Array.newInstance(sortOrder);
+	if (columns === undefined) {
 		orderedColumns = sortOrder.map(function(v){
-			if (v.value!==undefined){
-				for(var i=columns.length;i--;){
-					if (columns[i].name==v.value && !(columns[i].sortOrder==0)) return {"name": v.value, "sortOrder":nvl(v.sort, 1), "domain":Qb.domain.value};
+			return {"value": nvl(v.value, v), "sortOrder": nvl(v.sortOrder, v.sort, 1), "domain": Qb.domain.value};
+		});
+	} else {
+		orderedColumns = sortOrder.map(function(v){
+			if (v.value !== undefined) {
+				for (var i = columns.length; i--;) {
+					if (columns[i].name == v.value && !(columns[i].sortOrder == 0))
+						return {"value": v.value, "sortOrder": nvl(v.sortOrder, v.sort, 1), "domain": Qb.domain.value};
 				}//for
-			}else{
-				for(var i=columns.length;i--;){
-					if (columns[i].name==v && !(columns[i].sortOrder==0)) return {"name":v, "sortOrder":1, "domain":Qb.domain.value};
+			} else {
+				for (var i = columns.length; i--;) {
+					if (columns[i].name == v && !(columns[i].sortOrder == 0))
+						return {"value": v, "sortOrder": 1, "domain": Qb.domain.value};
 				}//for
 			}
-			Log.error("Sorting can not find column named '"+v+"'");
+			Log.error("Sorting can not find column named '" + v + "'");
 		});
 	}//endif
+	return orderedColumns;
+}//function
 
+
+Qb.sort.compile=function(sortOrder, columns, useNames){
+	var orderedColumns = normalizeSort(sortOrder, columns);
 	var f="totalSort = function(a, b){\nvar diff;\n";
 	for(var o = 0; o < orderedColumns.length; o++){
 		var col = orderedColumns[o];
@@ -1048,10 +1074,10 @@ Qb.sort.compile=function(sortOrder, columns, useNames){
 		var index;
 		if (!useNames){
 			index = col.columnIndex;
-		}else if (MVEL.isKeyword(col.name)){
-			index=splitField(col.name).map(CNV.String2Quote).join("][");
-		}else if (columns.select("name").contains(col.name)){
-			index=CNV.String2Quote(col.name);
+		}else if (MVEL.isKeyword(col.value)){
+			index=splitField(col.value).map(CNV.String2Quote).join("][");
+		}else if (columns.select("name").contains(col.value)){
+			index=CNV.String2Quote(col.value);
 		}else{
 			Log.error("Can not handle");
 		}//endif

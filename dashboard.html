@@ -42,7 +42,7 @@
 			</td>
 		</tr>
 		<tr>
-			<td><h3>Review Minus</h3>Looks like patch has been rejected, and no activity since.</td>
+			<td><h3>Review Minus</h3>Looks like patch has been rejected.</td>
 		</tr>
 		<tr>
 			<td id="reviewMinus"></td>
@@ -149,20 +149,6 @@ importScript([
 
 	var __createChart = function*(){
 
-		var mainFilter = {"and": [
-			{"or": [
-				{"exists": {"field": "bug_mentor"}},
-				{"prefix": {"status_whiteboard.tokenized": "mentor"}},
-				{"term": {"status_whiteboard.tokenized": "good first bug"}},
-				{"term": {"status_whiteboard.tokenized": "good next bug"}},
-				{"term": {"status_whiteboard.tokenized": "good_first_bug"}},
-				{"term": {"status_whiteboard.tokenized": "good_next_bug"}}
-
-			]},
-//			{"term": {"bug_id":1112773}},
-			{"terms": {"product": ["bugzilla", "bugzilla.mozilla.org", "testing", "datazilla"]}}
-		]};
-
 		var notAssigned = {"or":[
 			{"term": {"assigned_to": "nobody@mozilla.org"}},
 			{"regexp":{"assigned_to": ".*bugzilla\\.bugs"}}  // BUGZILLA HAS LOTS EMAILS THAT INDICATE nobody
@@ -174,7 +160,7 @@ importScript([
 				"select": "bug_id",
 				"from": "public_bugs",
 				"esfilter": {"and": [
-					mainFilter,
+					contributorFilter,
 					Mozilla.CurrentRecords.esfilter,
 					Mozilla.BugStatus.Open.esfilter
 				]}
@@ -186,7 +172,7 @@ importScript([
 			///////////////////////////////////////////////////////////////////
 			// PATCHES AND REVIEWS ARE DONE WITH SINGLE HIT TO ES
 			///////////////////////////////////////////////////////////////////
-			var allPatches = yield (getPendingPatches(mainFilter));
+			var allPatches = yield (getPendingPatches(contributorFilter));
 
 			var rawPatches = yield (Qb.calc2List({
 				"from": allPatches,
@@ -261,7 +247,7 @@ importScript([
 			var oldest = Date.today().addMonth(-1);
 
 			var churn = yield (ElasticSearch.getMinMax({"and": [
-				mainFilter,
+				contributorFilter,
 				{"range": {"modified_ts": {"gte": oldest.getMilli()}}},
 				notAssigned
 			]}));
@@ -303,7 +289,7 @@ importScript([
 				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
 				"from": "public_bugs",
 				"esfilter": {"and": [
-					mainFilter,
+					contributorFilter,
 					Mozilla.CurrentRecords.esfilter,
 					Mozilla.BugStatus.Open.esfilter,
 					{"range": {"modified_ts": {"lt": Date.today().addMonth(-3).getMilli()}}},
@@ -330,7 +316,7 @@ importScript([
 				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
 				"from": "public_bugs",
 				"esfilter": {"and": [
-					mainFilter,
+					contributorFilter,
 					Mozilla.CurrentRecords.esfilter,
 					Mozilla.BugStatus.Open.esfilter,
 					{"range": {"modified_ts": {"lt": Date.today().addDay(-7).getMilli()}}},
@@ -360,7 +346,7 @@ importScript([
 				"from": "public_bugs",
 				"select": ["bug_id", "short_desc", "modified_ts", "bug_mentor", "status_whiteboard"],
 				"esfilter": {"and": [
-					mainFilter,
+					contributorFilter,
 					Mozilla.CurrentRecords.esfilter,
 					Mozilla.BugStatus.Open.esfilter,
 					{"range": {"modified_ts": {"lt": Date.today().addDay(-2).getMilli()}}},
