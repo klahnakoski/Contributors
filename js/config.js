@@ -5,17 +5,20 @@
 
 // IMPORTANT VALUES OR FILTERS
 
-var contributorFilter = {"and": [
-	{"or": [
-		{"exists": {"field": "bug_mentor"}},
-		{"prefix": {"status_whiteboard.tokenized": "mentor"}},
-		{"term": {"status_whiteboard.tokenized": "good first bug"}},
-		{"term": {"status_whiteboard.tokenized": "good next bug"}},
-		{"term": {"status_whiteboard.tokenized": "good_first_bug"}},
-		{"term": {"status_whiteboard.tokenized": "good_next_bug"}}
-
-	]},
-	{"terms": {"product": ["tree management", "bugzilla", "bugzilla.mozilla.org", "testing", "datazilla"]}}
-]};
+var contributorFilter = {
+    "and": [
+        {
+            "or": [
+                {"exists": {"field": "bug_mentor"}},
+                {"prefix": {"status_whiteboard.tokenized": "mentor"}},
+                {"term": {"status_whiteboard.tokenized": "good first bug"}},
+                {"term": {"status_whiteboard.tokenized": "good next bug"}},
+                {"term": {"status_whiteboard.tokenized": "good_first_bug"}},
+                {"term": {"status_whiteboard.tokenized": "good_next_bug"}}
+            ]
+        },
+        {"terms": {"product": []}}
+    ]
+};
 
 
