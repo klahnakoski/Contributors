@@ -6,6 +6,12 @@ importScript([
 
     var thread;
     var createChart = function () {
+        var tempArray = [];
+        GUI.state.teamFilter.forEach(function(element, index, array) {
+            tempArray.push(element.toLowerCase());
+        });
+        contributorFilter.and[1].terms.product = tempArray;
+
         if (thread !== undefined)
             thread.kill();
         thread = Thread.run(__createChart());
@@ -320,15 +326,10 @@ importScript([
     };//createChart
 
     var findBugs = function() {
-        var tempArray = [];
-        $('select#product option:selected').each(function() {
-            tempArray.push($(this).val().toLowerCase());
-        });
-        contributorFilter.and[1].terms.product = tempArray;
         GUI.setup(
             createChart,
             [
-//				{"id" : "teamFilter", "name" : "Team", "type" : TeamFilter.newInstance(null)}
+				{"id" : "teamFilter", "name" : "Team", "type" : "select", "default": "Firefox for Android"}
             ],
             [],
             "public_bugs",
@@ -338,6 +339,5 @@ importScript([
 
     $(document).ready(function() {
         findBugs();
-        $("select#product").change(findBugs);
     });
 });
