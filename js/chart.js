@@ -1,8 +1,10 @@
 importScript([
     "../modevlib/main.js",
     "review.js",
-    "config.js"
+    "config.js",
+    "../modevlib/layouts/layout.js"
 ], function () {
+    layoutAll();
 
     var thread;
     var createChart = function () {
@@ -12,8 +14,6 @@ importScript([
     };
 
     var __createChart = function*() {
-
-
         var notAssigned = {
             "or": [
                 {"term": {"assigned_to": "nobody@mozilla.org"}},
@@ -326,13 +326,13 @@ importScript([
         });
         contributorFilter.and[1].terms.product = tempArray;
         GUI.setup(
-            createChart,
-            [
-//				{"id" : "teamFilter", "name" : "Team", "type" : TeamFilter.newInstance(null)}
-            ],
-            [],
-            "public_bugs",
-            false
+          createChart,
+          [],
+          [],
+          null,
+          false,		//SHOW DEFAULT FILTERS?
+          false,
+          false        //DISABLE showLastUpdated
         );
     };
 
