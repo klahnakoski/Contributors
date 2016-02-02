@@ -140,6 +140,8 @@ importScript([
                 "sort": {"value": "Age (days)", "sort": -1}
             }));
             $("#completeReview").html(render(complete));
+
+            dynamicLayout();
         });
 
         Thread.run(function*() {
@@ -190,6 +192,7 @@ importScript([
             }));
 
             $("#newBugs").html(render(output))
+            dynamicLayout();
         });
 
 
@@ -226,6 +229,7 @@ importScript([
             }));
 
             $("#noBites").html(render(output))
+            dynamicLayout();
         });
 
         Thread.run(function*() {
@@ -261,6 +265,7 @@ importScript([
             }));
 
             $("#staleBugs").html(render(output))
+            dynamicLayout();
         });
 
         Thread.run(function*() {
@@ -320,7 +325,8 @@ importScript([
                 "sort": {"value": "Age (days)", "sort": -1}
             }));
 
-            $("#openQuestion").html(render(output))
+            $("#openQuestion").html(render(output));
+            dynamicLayout();
 
         });
     };//createChart
@@ -328,7 +334,9 @@ importScript([
     var findBugs = function() {
         GUI.setup(
           createChart,
-          [],
+          [
+              {"id" : "teamFilter", "name" : "Team", "type" : "set", "default": "Firefox for Android"}
+          ],
           [],
           null,
           false,		//SHOW DEFAULT FILTERS?
