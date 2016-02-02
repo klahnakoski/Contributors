@@ -168,7 +168,7 @@ importScript(
 				}));
 
 
-				$("#details").html(CNV.List2HTMLTable(details));
+				$("#details").html(convert.List2HTMLTable(details));
 
 
 			});
@@ -235,7 +235,7 @@ importScript(
 						{"terms": {"bug_id": allBugs.list.select("bug_id")}}
 					]}
 				});
-				fixed = CNV.Object2JSON(fixed.list);
+				fixed = convert.Object2JSON(fixed.list);
 
 
 				var churn = yield(Q({
@@ -270,7 +270,7 @@ importScript(
 							var buglist = (yield (Qb.calc2List({
 								"from": allBugs,
 								"select": {"value": "bug_id"},
-								"where": "" + field + "!==undefined && " + field + ".between(" + CNV.Date2Code(part.min) + ", " + CNV.Date2Code(part.max) + ") && "+fixed+".contains(bug_id)"
+								"where": "" + field + "!==undefined && " + field + ".between(" + convert.Date2Code(part.min) + ", " + CNV.Date2Code(part.max) + ") && "+fixed+".contains(bug_id)"
 							})));
 
 							Bugzilla.showBugs(buglist.list);

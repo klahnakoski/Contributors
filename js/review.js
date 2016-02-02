@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 function*getReviewers(timeDomain, maxReviewers){
-	maxReviewers = nvl(maxReviewers, 100);
+	maxReviewers = coalesce(maxReviewers, 100);
 
 	var persons = [];
 
@@ -155,8 +155,8 @@ function* getPendingPatches(mainFilter){
 				) {
 					f.bug = b;
 					f.attachment = a;
-					f.reviewer = nvl(f.requestee);
-					f.request_time = nvl(f.modified_ts, a.modified_ts);
+					f.reviewer = coalesce(f.requestee);
+					f.request_time = coalesce(f.modified_ts, a.modified_ts);
 					allPatches.append(f);
 				}//endif
 			});
@@ -227,11 +227,11 @@ function findURL(line){
 doneBugs={};
 function render(bugs){
 	//SHOW BUGS ONLY ONCE
-	bugs = nvl(bugs.list, bugs).map(function(b){
+	bugs = coalesce(bugs.list, bugs).map(function(b){
 		if (doneBugs[b.BugID.html]) return undefined;
 		doneBugs[b.BugID.html]=true;
 		return b;
 	});
-	return CNV.List2HTMLTable(bugs);
+	return convert.List2HTMLTable(bugs);
 
 }//method

@@ -1,7 +1,7 @@
 importScript([
-    "modevlib/main.js",
-    "js/review.js",
-    "js/config.js"
+    "../modevlib/main.js",
+    "review.js",
+    "config.js"
 ], function () {
 
     var thread;
@@ -50,7 +50,7 @@ importScript([
                     {"name": "Mentor", "value": "bug.bug_mentor"},
                     {
                         "name": "Age (days)",
-                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
+                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(coalesce(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
                     }
                 ],
                 "where": {
@@ -68,10 +68,10 @@ importScript([
                 "select": [
                     {"name": "BugID", "value": "Bugzilla.linkToBug(bug.bug_id)"},
                     {"name": "Summary", "value": "bug.short_desc"},
-                    {"name": "Reviewer", "value": "nvl(reviewer, '')"},
+                    {"name": "Reviewer", "value": "coalesce(reviewer, '')"},
                     {
                         "name": "Age (days)",
-                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
+                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(coalesce(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
                     }
                 ],
                 "where": {
@@ -92,7 +92,7 @@ importScript([
                     {"name": "Reviewer", "value": "reviewer"},
                     {
                         "name": "Age (days)",
-                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
+                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(coalesce(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
                     }
                 ],
                 "where": {
@@ -113,7 +113,7 @@ importScript([
                     {"name": "Reviewer", "value": "reviewer"},
                     {
                         "name": "Age (days)",
-                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(nvl(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
+                        "value": "aMath.round(Date.eod().subtract(Date.newInstance(coalesce(modified_ts, attachment.modified_ts))).divideBy(Duration.DAY), 0)"
                     }
                 ],
                 "window": [
@@ -173,7 +173,7 @@ importScript([
                     {"name": "Summary", "value": "short_desc"},
                     {
                         "name": "Mentor",
-                        "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"
+                        "value": "coalesce(bug_mentor, coalesce(status_whiteboard, '').between('[mentor=', ']'))"
                     },
                     {
                         "name": "Age (weekdays)",
@@ -209,7 +209,7 @@ importScript([
                     {"name": "Summary", "value": "short_desc"},
                     {
                         "name": "Mentor",
-                        "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"
+                        "value": "coalesce(bug_mentor, coalesce(status_whiteboard, '').between('[mentor=', ']'))"
                     },
                     {
                         "name": "Age (days)",
@@ -244,7 +244,7 @@ importScript([
                     {"name": "Summary", "value": "short_desc"},
                     {
                         "name": "Mentor",
-                        "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"
+                        "value": "coalesce(bug_mentor, coalesce(status_whiteboard, '').between('[mentor=', ']'))"
                     },
                     {
                         "name": "Age (weekdays)",
@@ -304,7 +304,7 @@ importScript([
                     {"name": "Summary", "value": "short_desc"},
                     {
                         "name": "Mentor",
-                        "value": "nvl(bug_mentor, nvl(status_whiteboard, '').between('[mentor=', ']'))"
+                        "value": "coalesce(bug_mentor, coalesce(status_whiteboard, '').between('[mentor=', ']'))"
                     },
                     {
                         "name": "Age (days)",
