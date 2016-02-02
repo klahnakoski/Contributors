@@ -39,7 +39,7 @@ importScript([
                         Mozilla.BugStatus.Open.esfilter
                     ]
                 }
-            }))).list;
+            }))).list.select("bug_id");
         });
 
         Thread.run(function*() {
@@ -141,7 +141,7 @@ importScript([
             }));
             $("#completeReview").html(render(complete));
 
-            dynamicLayout();
+
         });
 
         Thread.run(function*() {
@@ -192,7 +192,7 @@ importScript([
             }));
 
             $("#newBugs").html(render(output))
-            dynamicLayout();
+
         });
 
 
@@ -229,7 +229,7 @@ importScript([
             }));
 
             $("#noBites").html(render(output))
-            dynamicLayout();
+
         });
 
         Thread.run(function*() {
@@ -265,7 +265,7 @@ importScript([
             }));
 
             $("#staleBugs").html(render(output))
-            dynamicLayout();
+
         });
 
         Thread.run(function*() {
@@ -326,7 +326,7 @@ importScript([
             }));
 
             $("#openQuestion").html(render(output));
-            dynamicLayout();
+
 
         });
     };//createChart
