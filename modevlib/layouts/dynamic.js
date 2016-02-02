@@ -8,7 +8,7 @@
 
 importScript("../../lib/jquery.js");
 
-// ADD DYNAMIC STYLING TO NODES!
+// ADD DYNAMIC STYLING TO DOCUMENT ELEMENTS!
 //
 // Example:
 // <div dynamicStyle=":hover {background_color: black}">Hello World</div>
@@ -38,31 +38,41 @@ $(document).ready(function () {
 			if (rule.trim()=="") return undefined;
 
 			var info = rule.split("{");
-			return {"selector": info[0].trim(), "style": CNV.style2Object(info[1])};
+			return {"selector": info[0].trim("=").trim(), "style": convert.style2Object(info[1])};
 		});
 	}//method
 
+
 	function dynamicStyle() {
 		var styles = [];
-		$(this).find("[dynamic-style]").each(function () {
+
+		function styler(){
 			var self = $(this);
 			var rules = parseCSS(self.attr("dynamic-style"));
-			var defaultStyle = CNV.style2Object(self.attr("style"));
+			var defaultStyle = {};
+			if (self.attr("style")) defaultStyle = convert.style2Object(self.attr("style"));
+
 			var id = self.attr("id");
 			if (id == undefined) {
 				id = UID_PREFIX + uid();
 				self.attr("id", id);
 			}//endif
 
-			styles.append("#" + id + "{" + CNV.Object2style(defaultStyle) + "}\n");  //DEFAULT
-			rules.forall(function (rule) {
-				styles.append("#" + id + rule.selector + "{" + CNV.Object2style(Map.setDefault(rule.style, defaultStyle)) + "}\n");
+			styles.append("#" + id + "{" + convert.Object2style(defaultStyle) + "}\n");  //DEFAULT
+			rules.forall(function(rule){
+				styles.append("#" + id + rule.selector + "{" + convert.Object2style(Map.setDefault(rule.style, defaultStyle)) + "}\n");
 			});
 
 			//CLEANUP
 			self.removeClass(INDICATOR_CLASS).removeAttr("style").removeAttr("dynamic-style");
-		});
-		$("head").append('"<style type="text/css">' + styles.join("\n") + "</style>");
+		}
+
+		var self=$(this);
+		if (self.attr("dynamic-style"))	styler.apply(self);
+		self.find("[dynamic-style]").each(styler);
+		if (styles.length>0) {
+			$("head").append('"<style type="text/css">' + styles.join("\n") + "</style>");
+		}//endif
 		return this;
 	}
 
@@ -71,12 +81,18 @@ $(document).ready(function () {
 
 
 	function dynamicState(){
+		// LOOP THROUGH AN ARRAY OF "STATES" (aka CLASS NAMES)
+		//
+		// THE INITIAL CLASS IS ASSIGNED TO `class`, AND LOOKED UP IN THE
+		// `dynamic-state` ARRAY TO FIND CURRENT INDEX.  EACH `click()` WILL
+		// ADVANCE THE INDEX.
+
 		$(this).find("[dynamic-state]").each(function(){
 			//DO NOT PROCESS MORE THAN ONCE
 			$(this).attr("dynamic-state-cycle", $(this).attr("dynamic-state")).removeAttr("dynamic-state");
 		}).click(function(e){
 			//FIND THE STATE LOOP
-			var states = CNV.JSON2Object($(this).attr("dynamic-state-cycle"));
+			var states = convert.json2value($(this).attr("dynamic-state-cycle"));
 
 			//FIND THE CURRENT STATE
 			var curr = $(this).attr("class").split(" ");

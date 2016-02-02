@@ -250,7 +250,8 @@ aChart.showPie=function(params){
 	var type=params.type;
 	var chartCube=params.cube;
 
-	if (chartCube.cube.length==0){
+	var cube = coalesce(chartCube.cube, chartCube.data);
+	if (cube.length==0){
 		Log.warning("Nothing to pie-chart");
 		return;
 	}//endif
@@ -267,9 +268,9 @@ aChart.showPie=function(params){
 			var other = 0;
 
 			//COLAPSE INTO 'OTHER' CATEEGORY
-			var total = aMath.SUM(chartCube.cube);
+			var total = aMath.SUM(cube);
 			values = [];
-			chartCube.cube.forall(function(v, i){
+			cube.forall(function(v, i){
 				if (v/total >= params.minPercent){
 					values.append({"name":seriesLabels[i], "value":v, "style":chartCube.edges[0].domain.partitions[i].style})
 				}else{
@@ -279,7 +280,7 @@ aChart.showPie=function(params){
 			values = Qb.sort(values, {"value" : "value", "sort" : -1});
 			if (other > 0) values.append({"name" : "Other", "value" : other, "style":params.otherStyle});
 		} else {
-			values = chartCube.cube.map(function(v, i){
+			values = cube.map(function(v, i){
 				return {"name" : seriesLabels[i], "value" : v, "style":chartCube.edges[0].domain.partitions[i].style}
 			});
 			values = Qb.sort(values, {"value" : "value", "sort" : -1});
@@ -292,9 +293,9 @@ aChart.showPie=function(params){
 			var allOther = 0;
 
 			//COLAPSE INTO 'OTHER' CATEEGORY
-			var total = aMath.SUM(chartCube.cube.map(aMath.SUM));
+			var total = aMath.SUM(cube.map(aMath.SUM));
 			values = [];
-			chartCube.cube.forall(function(s, i){
+			cube.forall(function(s, i){
 				var other = 0;
 				var hasSpecific = false;
 				s.forall(function(v, j){
@@ -346,7 +347,7 @@ aChart.showPie=function(params){
 		width: 400,
 		height: 400,
 		animate:false,
-		title: nvl(params.name, chartCube.name),
+		title: coalesce(params.name, chartCube.name),
 		legend: true,
 		legendPosition: "right",
 //		legendAlign: "center",
@@ -401,240 +402,46 @@ aChart.showPie=function(params){
 };//method
 
 
-aChart.showScatter=function(params){
-	Map.expecting(params, ["id", "cube"]);
-	var divName=params.id;
-
-	var chartCube=params.cube;
-	var type="scatter";
-	var stacked=nvl(params.stacked, false);
-
-
-	////////////////////////////////////////////////////////////////////////////
-	// SERIES (ONLY IF MORE THAN ONE EDGE)
-	////////////////////////////////////////////////////////////////////////////
-	var xaxis=chartCube.edges[chartCube.edges.length-1];
-
-	////////////////////////////////////////////////////////////////////////////
-	// SET MAX WITHOUT "NICE" ROUNDING BUFFER
-	////////////////////////////////////////////////////////////////////////////
-	if (params.orthoAxisFixedMax==true){
-		if (stacked && chartCube.edges.length==1){
-			var max=undefined;
-			chartCube.edges[0].domain.partitions.forall(function(part,i){
-				var total=0;
-				Array.newInstance(chartCube.select).forall(function(s){
-					total+=nvl(chartCube.cube[i][s.name], 0);
-				});
-				max=aMath.max(max, total);
-			});
-			params.orthoAxisFixedMax=max==0 ? 1 : max;  //DO NOT USE ZERO
-		}else{
-			Log.error("Not supported yet");
-		}
-	}//endif
-
-	////////////////////////////////////////////////////////////////////////////
-	// STYLES
-	////////////////////////////////////////////////////////////////////////////
-	var styles = [
-		{"color":"#1f77b4"},
-		{"color":"#ff7f0e"},
-		{"color":"#2ca02c"},
-		{"color":"#d62728"},
-		{"color":"#9467bd"},
-		{"color":"#8c564b"},
-		{"color":"#e377c2"},
-		{"color":"#7f7f7f"},
-		{"color":"#bcbd22"},
-		{"color":"#17becf"}
-	];
-
-	if (chartCube.edges.length==1){
-		if (chartCube.select instanceof Array){
-			for(i=0;i<chartCube.select.length;i++){
-				if (chartCube.select[i].color!==undefined) Log.error("expecting color in style attribute (style.color)");
-				if (chartCube.select[i].style!==undefined) styles[i]=chartCube.select[i].style;
-			}//for
-		}else{
-			if (chartCube.select.color!==undefined) Log.error("expecting color in style attribute (style.color)");
-			if (chartCube.select.style!==undefined) styles[0]=chartCube.select.style;
-		}//endif
-	}else{
-		var parts=chartCube.edges[0].domain.partitions;
-		for(i=0;i<parts.length;i++){
-			if (parts[i].color!==undefined) Log.error("expecting color in style attribute (style.color)");
-			if (parts[i].style!==undefined) styles[i]=parts[i].style;
-		}//for
-	}//endif
-
-
-
-
-	var height=$("#"+divName).height();
-	var width=$("#"+divName).width();
-
-	var chartParams={
-		canvas: divName,
-		width: width,
-		height: height,
-		animate:false,
-		title: nvl(params.name, chartCube.name),
-		legend: (chartCube.edges.length!=1 || Array.newInstance(chartCube.select).length>1),		//DO NOT SHOW LEGEND IF NO CATEGORIES
-		legendPosition: "bottom",
-		legendAlign: "center",
-
-		orientation: 'vertical',
-		timeSeries: (xaxis.domain.type=="time"),
-		timeSeriesFormat: JavaDateFormat2ProtoVisDateFormat(xaxis.domain.format),
-		showDots:true,
-		dotsVisible: true,
-		showValues: false,
-		originIsZero: this.originZero,
-		yAxisPosition: "right",
-		yAxisSize: 50,
-		xAxisSize: 50,
-		"colors":styles.map(function(s){return s.color;}),
-		plotFrameVisible: false,
-//		"colorNormByCategory": false,        //FOR HEAT CHARTS
-		extensionPoints: {
-			noDataMessage_text: "No Data To Chart",
-			xAxisLabel_textAngle: aMath.PI/4,
-			xAxisLabel_textAlign: "left",
-			xAxisLabel_textBaseline: "top",
-//			label_textStyle:"white",
-//			xAxisScale_dateTickFormat: "%Y/%m/%d",
-//			xAxisScale_dateTickPrecision: xaxis.domain.interval.milli
-			//set in miliseconds
-
-			dot_shapeRadius: 4, //USEd IN LEGEND (VERSION 2)
-			dot_shape:"circle",
-			line_lineWidth: 4
-//			line_strokeStyle:
-		}
-	};
-	copyParam(params, chartParams);
-
-
-	if (xaxis.domain.type=="time"){
-		//LOOK FOR DATES TO MARKUP
-
-		var dateMarks = [];
-		dateMarks.appendArray(findDateMarks(xaxis.domain));  //WE CAN PLUG SOME dateMarks RIGHT INTO TIME DOMAIN FOR DISPLAY
-		if (dateMarks.length>0){
-			chartParams.renderCallback=function(){
-				var self=this;
-				dateMarks.forall(function(m){
-					try{
-						self.chart.markEvent(Date.newInstance(m.date).format(Qb.domain.time.DEFAULT_FORMAT), m.name, m.style);
-					}catch(e){
-						Log.warning("markEvent failed", e);
-					}
-				});
-				if (params.renderCallback) params.renderCallback();  //CHAIN EXISTING, IF ONE
-			};
-		}//endif
-	}//endif
-
-
-
-	var chart = new pvc[CHART_TYPES[type]](chartParams);
-
-	//SCATTER REQUIRES ONE RECORD PER DATA POINT
-	//first column is category names, second column is series names, third is value
-	var data;
-	var categoryLabels=[];
-	if (chartCube.edges.length==1){
-		valueName=Array.newInstance(chartCube.select)[0].name;
-		seriesName=xaxis.name;
-		seriesFormatter=xaxis.domain.label;
-		columns=["placeholder", seriesName, valueName];
-		//GIVE EACH SELECT A ROW
-		data=chartCube.list.map(function(v, i){
-			return [
-				"",
-				seriesFormatter(v[seriesName]),
-				v[valueName]
-			];
-		});
-	}else{
-		categoryName=chartCube.edges[0].name;
-		categoryLabels=chartCube.edges[0].domain.partitions.map(function(v){
-			return chartCube.edges[0].domain.label(v)
-		});
-
-		valueName=Array.newInstance(chartCube.select)[0].name;
-		seriesName=xaxis.name;
-		seriesFormatter=xaxis.domain.label;
-		columns=[categoryName, seriesName, valueName];
-		//GIVE EACH SELECT A ROW
-		data=chartCube.list.map(function(v, i){
-			return [
-				chartCube.edges[0].domain.label(v[categoryName]),
-				seriesFormatter(v[seriesName]),
-				v[valueName]
-			];
-		});
-	}//endif
-
-	//CCC2 - metadata MUST BE IN x, y, category ORDER!
-	var metadata=columns.map(function(v, i){ return {"colIndex":i, "colName":v, "colType":i==0?"String":"Numeric"};});
-
-	var cccData = {
-		"resultset":data,
-		"metadata":metadata
-	};
-
-	chart.setData(cccData, {crosstabMode: false, seriesInRows: false});
-	chart.render();
-
-	//STARTS AS VISIBLE, SO TOGGLE TO HIDE
-	styles.forall(function(s, i){
-		if (s.visibility && s.visibility=="hidden" && chart.legendPanel!=null){
-			var datums=chart.legendPanel.data._datums.map(function(d){
-				if (d.key.indexOf(","+categoryLabels[i]+",")>=0) return d;
-			});
-			pvc.data.Data.setVisible(datums, false);
-		}
-	});
-	chart.render(true, true, false);
-
-
-
-//	chart.basePanel.chart.legendPanel
-
-	//ADD BUTTON TO SHOW SHEET
-	if (params.sheetDiv){
-
-
-		var sheetButtonID=divName+"-showSheet";
-		var html='<div id='+CNV.String2Quote(sheetButtonID)+' class="toolbutton" style="right:3;bottom:3" title="Show Table"><img src="'+Settings.imagePath+'/Spreadsheet.png"></div>';
-
-
-		$("#"+divName).append(html);
-		$("#"+sheetButtonID).click(function(){
-			var oldHtml=$("#"+params.sheetDiv).html();
-			var newHtml=CNV.Cube2HTMLTable(chartCube);
-
-			if (oldHtml!=""){
-				$("#"+params.sheetDiv).html("");
-			}else{
-				$("#"+params.sheetDiv).html(newHtml);
-			}//endif
-		});
-	}//endif
-
-
-};
 
 
 aChart.show=function(params){
-	Map.expecting(params, ["id", "cube"]);
+	Map.expecting(params, ["id"]);
 	var divName=params.id;
 
 	var chartCube=params.cube;
+	var cube = coalesce(Map.get(params, "cube.cube"), Map.get(params, "cube.data"), params.data);
+	if (!cube) Log.error("Expecting `cube` parameter, or `data` parameter");
+
+	if (!chartCube){
+		Map.expecting(params["data", "axis.x.value", "series.type"])
+	}
+	//EXPECTING cube TO BE AN OBJECT WITH cube[chartCube.select] BEING AN ARRAY
+
+	if (!(cube instanceof Array)){
+		//THE ActiveData CUBE
+		//do nothing
+	}else{
+		//MoDevMetric CUBE
+		if (chartCube.select instanceof Array) {
+			var m = new Matrix({"data": cube});
+			cube = Map.zip(Array.newInstance(chartCube.select).map(function(s){
+				return [
+					s.name,
+					m.map(function(v){
+						return v[s.name];
+					})
+				];
+			}));
+		}else{
+			cube = Map.newInstance(chartCube.select.name, cube);
+		}//endif
+
+	}//endif
+
+
+
 	var type=params.type;
-	var stacked=nvl(params.stacked, false);
+	var stacked=coalesce(params.stacked, false);
 	////////////////////////////////////////////////////////////////////////////
 	// TYPE OF CHART
 	////////////////////////////////////////////////////////////////////////////
@@ -681,12 +488,16 @@ aChart.show=function(params){
 	var categoryLabels;
 	if (chartCube.edges.length==1 || chartCube.edges[0].domain.partitions.length==0){
 		categoryAxis={"domain":{"type":"set", "partitions":Array.newInstance(chartCube.select)}};
-		categoryLabels=Array.newInstance(chartCube.select).map(function(v, i){
+		categoryLabels=Array.newInstance(chartCube.select).map(function(v){
 			return v.name;
 		});
 	}else if (chartCube.edges.length==2){
-		if (chartCube.select instanceof Array){
-			Log.error("Can not chart when select clause is an array");
+		if (chartCube.select instanceof Array) {
+			if (chartCube.select.length > 1) {
+				Log.error("Can not chart when select clause is an array");
+			} else {
+				chartCube.select = chartCube.select[0];
+			}//endif
 		}//endif
 		categoryAxis=chartCube.edges[0];
 		categoryLabels=getAxisLabels(chartCube.edges[0]);
@@ -701,7 +512,7 @@ aChart.show=function(params){
 //			chartCube.edges[0].domain.partitions.forall(function(part,i){
 //				var total=0;
 //				Array.newInstance(chartCube.select).forall(function(s){
-//					total+=nvl(chartCube.cube[i][s.name], 0);
+//					total+=coalesce(cube[i][s.name], 0);
 //				});
 //				max=aMath.max(max, total);
 //			});
@@ -773,11 +584,10 @@ aChart.show=function(params){
 		height: height,
 		animate:false,
 		ignoreNulls: false,
-		title: nvl(params.name, chartCube.name),
+		title: coalesce(params.name, chartCube.name),
 		legend: (chartCube.edges.length!=1 || Array.newInstance(chartCube.select).length>1),		//DO NOT SHOW LEGEND IF NO CATEGORIES
 		legendPosition: "bottom",
 		legendAlign: "center",
-
 		orientation: 'vertical',
 		timeSeries: (xaxis.domain.type=="time"),
 		timeSeriesFormat: JavaDateFormat2ProtoVisDateFormat(Qb.domain.time.DEFAULT_FORMAT),
@@ -795,7 +605,7 @@ aChart.show=function(params){
 //			}
 		},
 		"colors":styles.map(function(s, i){
-			var c = nvl(s.color, DEFAULT_STYLES[i%(DEFAULT_STYLES.length)].color);
+			var c = coalesce(s.color, DEFAULT_STYLES[i%(DEFAULT_STYLES.length)].color);
 			if (c.toHTML){
 				return c.toHTML();
 			}else{
@@ -817,7 +627,7 @@ aChart.show=function(params){
 			dot_shapeRadius: 4, //USEd IN LEGEND (VERSION 2)
 			dot_shape:"circle",
 			line_lineWidth: 4
-//			line_strokeStyle:
+//			line_strokeStyle: "none",
 		},
 		"clickable": true,
 		"clickAction":function(series, x, d, elem){
@@ -862,38 +672,42 @@ aChart.show=function(params){
 			//GIVE EACH SELECT A ROW
 			data=[];
 			for(var s=0;s<chartCube.select.length;s++){
-				var row=chartCube.cube.map(function(v, i){
-					return v[chartCube.select[s].name];
-				});
-				data.push(row);
+				data.push(cube[chartCube.select[s].name]);
 			}//for
 		}else if (Qb.domain.ALGEBRAIC.contains(chartCube.edges[0].domain.type)){
 			//ALGEBRAIC DOMAINS ARE PROBABLY NOT MULTICOLORED
-			data=[chartCube.cube]
+			data=[cube[chartCube.select.name]]
 		}else{
 			//SWAP DIMENSIONS ON CATEGORICAL DOMAIN SO WE CAN USE COLOR
 			var temp=seriesLabels;
 			seriesLabels=categoryLabels;
 			categoryLabels=temp;
-			data=chartCube.cube.map(function(v){return [v];});
+			data=cube[chartCube.select.name].map(function(v){return [v];});
 		}//endif
 	}else{
-		data=chartCube.cube.copy();
+		data=cube[Array.newInstance(chartCube.select)[0].name];
 	}//endif
 
 
 	//
 	//
 	data.forall(function(v,i,d){
-		v=v.copy();
+		try{
+			v=v.copy();
+		}catch(e){
+			Log.error("Not expected")
+		}//try
+		var isNull=false;  //true IF SEEN A NULL IN THIS SERIES
 		for(var j=0;j<v.length;j++){
-			if (v[j]==null){
+			if (v[j]!=null && isNull){
 				//the charting library has a bug that makes it simply not draw null values
 				//(or even leave a visual placeholder)  This results in a mismatch between
 				//the horizontal scale and the values charted.  For example, if the first
 				//day has null, then the second day is rendered in the first day position,
 				//and so on.
 				Log.error("Charting library can not handle null values (maybe set a default?)");
+			}else if (v[j]==null){
+				isNull=true;
 			}//endif
 		}//for
 		v.splice(0,0, categoryLabels[i]);
@@ -929,13 +743,13 @@ aChart.show=function(params){
 
 
 		var sheetButtonID=divName+"-showSheet";
-		var html='<div id='+CNV.String2Quote(sheetButtonID)+' class="toolbutton" style="right:3;bottom:3" title="Show Table"><img src="'+Settings.imagePath+'/Spreadsheet.png"></div>';
+		var html='<div id='+convert.String2Quote(sheetButtonID)+' class="toolbutton" style="right:3;bottom:3" title="Show Table"><img src="'+Settings.imagePath+'/Spreadsheet.png"></div>';
 
 
 		$("#"+divName).append(html);
 		$("#"+sheetButtonID).click(function(){
 			var oldHtml=$("#"+params.sheetDiv).html();
-			var newHtml=CNV.Cube2HTMLTable(chartCube);
+			var newHtml=convert.Cube2HTMLTable(chartCube);
 
 			if (oldHtml!=""){
 				$("#"+params.sheetDiv).html("");
@@ -946,6 +760,7 @@ aChart.show=function(params){
 	}//endif
 
 
+	return chart;
 };
 
 
@@ -963,17 +778,17 @@ function fixAction(chartParams, actionName){
 	chartParams[actionName] = function(series, x, d, elem){
 		if (series.atoms !== undefined){
 			//CCC VERSION 2
-			var s = nvl(series.atoms.series, {"value":"data"}).value;
-			var c = nvl(series.atoms.category, series.atoms.x).value;
-			var v = nvl(series.atoms.value, series.atoms.y).value;
+			var s = coalesce(series.atoms.series, {"value":"data"}).value;
+			var c = coalesce(series.atoms.category, series.atoms.x).value;
+			var v = coalesce(series.atoms.value, series.atoms.y).value;
 			if (c instanceof Date){  //CCC 2 DATES ARE IN LOCAL TZ
 				c = c.addTimezone();
 			}//endif
 
-			return action(s, c, v, elem, series.dataIndex);
+			return action.call(this, s, c, v, elem, series.dataIndex);
 		} else{
 			//CCC VERSION 1
-			return action(series, x, d, elem);
+			return action.call(this, series, x, d, elem);
 		}//endif
 	};//method
 }
@@ -984,9 +799,9 @@ function findDateMarks(part, name){
 	try{
 	var output = [];
 	Array.newInstance(part.dateMarks).forall(function (mark) {
-		var style = Map.setDefault({}, mark.style, part.style, {"color": "black", "lineWidth": "2.0", verticalAnchor: "top"});
-		style.strokeStyle = nvl(style.strokeStyle, style.color);
-		style.textStyle = nvl(style.textStyle, style.color);
+		var style = Map.setDefault({}, mark.style, part.style, {color: "black", lineWidth: "2.0", verticalAnchor: "top"});
+		style.strokeStyle = coalesce(style.strokeStyle, style.color);
+		style.textStyle = coalesce(style.textStyle, style.color);
 
 		if (mark.name !== undefined) {
 			//EXPECTING {"name":<name>, "date":<date>, "style":<style>} FORMAT
@@ -1093,11 +908,13 @@ function JavaDateFormat2ProtoVisDateFormat(format){
 function getAxisLabels(axis){
 	var labels;
 	if (axis.domain.type == "time"){
-		if (axis.domain.allowNulls) Log.error("Charting lib can not handle NULL domain value.");
+		if (axis.allowNulls) Log.error("Charting lib can not handle NULL domain value.");
 		var format=Qb.domain.time.DEFAULT_FORMAT;
 		labels=axis.domain.partitions.map(function(v, i){
-			if (v.value!=undefined){
-				return v.value.format(format);
+			if (v.value!==undefined) {
+				return Date.newInstance(v.value).format(format);
+			}else if (v.min!==undefined){
+				return Date.newInstance(v.min).format(format);
 			}else{
 				return Date.newInstance(v).format(format);
 			}//endif
@@ -1125,13 +942,24 @@ function getAxisLabels(axis){
 				if (axis.domain.label!==undefined){
 					//ALL DOMAINS EXPECTED TO HAVE LABELS
 					return ""+axis.domain.label(v);
+				}else if (axis.domain.end) {
+					return "" + axis.domain.end(v);
+				}else if (isString(v.name)) {
+					return v.name;
 				}else{
-					return ""+axis.domain.end(v);
+					Log.error("Expecting domain to have label() function, or part to have a name property");
 				}//endif
 			}//endif
 		});
 	}//endif
-	if (axis.allowNulls) labels.push(axis.domain.NULL.name);
+	if (axis.allowNulls){
+		if (axis.domain.NULL===undefined){
+			// TODO: all domains should have a NULL part describing it
+			labels.push("NULL");
+		}else{
+			labels.push(axis.domain.NULL.name);
+		}
+	}
 	return labels;
 }//method
 
@@ -1183,4 +1011,21 @@ aChart.addPredictionLine = function(param){
 		}//for
 	};
 
+
+	aChart.replaceNulls = function(result){
+		//REPLACE NULLS WITH ZERO (SHOULD BE DONE BY ACTIVE DATA)
+		Map.forall(result.data, function(k,v){
+			v = new Matrix({"data":v});
+			v.forall(function(vv, c){
+				if (vv==null){
+					v.set(c, 0);
+				}//endif
+			})
+		});
+	};//function
+
 })();
+
+
+
+

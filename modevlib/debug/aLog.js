@@ -7,10 +7,11 @@ importScript([
 		"../../lib/jquery.js",
 		"../../lib/jquery-ui/js/jquery-ui-1.10.2.custom.js",
 		"../../lib/jquery-ui/css/start/jquery-ui-1.10.2.custom.css",
-		"../../lib/jquery.ba-bbq/jquery.ba-bbq.js"
 ]);
 importScript("aException.js");
+importScript("../util/State.js");
 importScript("../util/aTemplate.js");
+importScript("../charts/aColor.js");
 
 
 
@@ -26,7 +27,7 @@ var Log = new function(){
 
 	//ACCEPT A FUNCTION THAT HANDLES OBJECT
 	Log.addLog=function(logger){
-		if (typeof(logger ) != "function"){
+		if (typeof(logger) != "function"){
 			Log.error("Expecting a function")
 		}//endif
 		Log.loggers.push(logger);
@@ -34,19 +35,22 @@ var Log = new function(){
 
 	//TODO: MAKE THIS BETTER SO IT SHOWS NICELY
 	function log2string(message){
-		if (typeof(message)=="string" || message instanceof String){
+		if (isString(message)){
 			return message;
 		}else if (message.type=="WARNING"){
 			return message.warning.toString();
 		}else if (message.message){
-			return Log.FORMAT.expand(message);
+			var temp = Map.copy(message);
+			temp.message = new Template(message.message).expand(message.params);
+			temp.param = undefined;
+			return Log.FORMAT.expand(temp);
 		}else{
-			return CNV.Object2JSON(message);
+			return convert.value2json(message);
 		}//endif
 	}
 
 	function log2html(message){
-		return "<p>"+CNV.String2HTML(JSON.stringify(message))+"</p>"
+		return "<p>"+convert.String2HTML(JSON.stringify(message))+"</p>"
 	}
 
 	//ADD THE DEFAULT CONSOLE LOGGING
@@ -74,9 +78,10 @@ var Log = new function(){
 		});
 	};
 
+
 	try{
 		$(document).ready(function(){
-			var id=$.bbq.getState("log");
+			var id=window.Session.URL.getFragment()["log"];
 			Log.addInvisibleLog(id);
 		});
 	}catch(e){
@@ -89,15 +94,16 @@ var Log = new function(){
 	//
 	// type - "NOTE", "WARNING", "ERROR", or others
 	// message - The humane message, or template
-	// params - For if the template has paramters
+	// params - For if the template has parameters
 	// timestamp - When this message was issued (gmt)
 	//
 	// ... AND MORE
-	Log.note = function(message){
-		if (typeof(message)=="string" || message instanceof String){
+	Log.note = function(message, params){
+		if (isString(message) && params==undefined){
 			message = {
 				"timestamp":Date.now(),
 				"message":message,
+				"params": params,
 				"type":"NOTE"
 			}
 		}else{
@@ -114,9 +120,17 @@ var Log = new function(){
 		Log.note("debug message");
 	};//method
 
-	Log.error = function(description, cause, stackOffset){
-		var ex=new Exception(description, cause, nvl(stackOffset, 0)+1);
-//		console.error(ex.toString());
+	Log.error = function(description, params, cause, stackOffset){
+		var ex;
+		if (params instanceof Exception) {
+			stackOffset = cause;
+			cause = params;
+			ex = new Exception(description, cause, coalesce(stackOffset, 0) + 1);
+		} else if (params === undefined) {
+			ex = new Exception(description, undefined, 1);
+		} else {
+			ex = new Exception(new Template(description).replace(params), cause, coalesce(stackOffset, 0) + 1);
+		}//endif
 		throw ex;
 	};//method
 
@@ -180,7 +194,7 @@ var Log = new function(){
 		);
 		var html = template.expand({
 			"uid":uid,
-			"style":CNV.Object2CSS({
+			"style":convert.Object2CSS({
 				"width":"100%",
 				"text-align":"center",
 				"color":"white",
@@ -296,7 +310,7 @@ ASSERT.hasAttributes=function(obj, keyList){
 			for(j=0;j<keyList[i].length;j++){
 				if (obj[keyList[i][j]]!==undefined) continue A;
 			}//for
-			Log.error("expecting object to have one of "+CNV.Object2JSON(keyList[i])+" attribute");
+			Log.error("expecting object to have one of "+convert.value2json(keyList[i])+" attribute");
 		}else{
 			if (obj[keyList[i]]===undefined) Log.error("expecting object to have '"+keyList[i]+"' attribute");
 		}//endif
